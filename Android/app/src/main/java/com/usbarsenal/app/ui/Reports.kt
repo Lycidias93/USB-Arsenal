@@ -18,6 +18,14 @@ fun setGermanLayout(context: android.content.Context, enabled: Boolean) {
         .edit().putBoolean("de_qwertz", enabled).apply()
 }
 
+fun humanTyping(context: android.content.Context): Boolean =
+    context.getSharedPreferences("hid_text_layout", 0).getBoolean("human_typing", false)
+
+fun setHumanTyping(context: android.content.Context, enabled: Boolean) {
+    context.getSharedPreferences("hid_text_layout", 0)
+        .edit().putBoolean("human_typing", enabled).apply()
+}
+
 const val MOD_CTRL = 0x01
 const val MOD_SHIFT = 0x02
 const val MOD_ALT = 0x04
@@ -88,6 +96,26 @@ fun mouseReport(buttons: Int, dx: Int = 0, dy: Int = 0, wheel: Int = 0, pan: Int
     byteArrayOf(buttons.toByte(), signed(dx), signed(dy), signed(wheel), signed(pan))
 
 fun keyReport(mods: Int = 0, code: Int = 0) = byteArrayOf(mods.toByte(), 0, code.toByte(), 0, 0, 0, 0, 0)
+
+// Windows needs Right Alt as its own transition, before and after AltGr+key.
+fun keyStrokeReports(mods: Int, code: Int): List<ByteArray> =
+    if (mods and MOD_ALTGR != 0 && code != 0) {
+        listOf(keyReport(mods), keyReport(mods, code), keyReport(mods), keyReport())
+    } else {
+        listOf(keyReport(mods, code), keyReport())
+    }
+
+// Never shorten the physical 12-ms minimum that passed the Windows test.
+internal fun keyboardReportPaceMs(interval: Int, fullSpeed: Boolean): Long {
+    val n = interval.coerceIn(1, 16)
+    val us = if (fullSpeed) n * 1000L else (1L shl (n - 1)) * 125
+    return maxOf(12L, (2 * us + 999) / 1000)
+}
+
+// Keep the whole stroke at its reliable HID cadence; extend only its final all-up dwell.
+// This targets an interval between starts of adjacent characters, not per report.
+internal fun humanTailPaceMs(reportCount: Int, reportPaceMs: Long, intervalMs: Long): Long =
+    maxOf(reportPaceMs, intervalMs - (reportCount - 1).coerceAtLeast(0) * reportPaceMs)
 
 // The keys the Keys tab names, by their usage codes
 val NAMED_KEYS: Map<String, Int> = mapOf(
