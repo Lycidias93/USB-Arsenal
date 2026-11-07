@@ -113,10 +113,10 @@ import kotlin.math.roundToInt
  * Pointer moves may go: the newest carries the buttons as they are.
  */
 private class HidWriter(private val node: String, private val size: Int, private val paced: () -> Long = { 0L }) {
-    private val reports = if (paced() > 0) Channel<ByteArray>(Channel.UNLIMITED) else Channel(64, BufferOverflow.DROP_OLDEST)
+    private val reports = if (paced() > 0) Channel<Pair<ByteArray, Long>>(Channel.UNLIMITED) else Channel(64, BufferOverflow.DROP_OLDEST)
 
-    fun send(report: ByteArray) {
-        reports.trySend(report)
+    fun send(report: ByteArray, extraDwellMs: Long = 0L) {
+        reports.trySend(report to extraDwellMs)
     }
 
     // Runs until cancelled, which kills the writer with its shell. One that dies (HID stopped, the
@@ -130,10 +130,10 @@ private class HidWriter(private val node: String, private val size: Int, private
                     withContext(Dispatchers.IO) {
                         w.input.write(ByteArray(size))
                         w.input.flush()
-                        for (r in reports) {
+                        for ((r, extraDwellMs) in reports) {
                             w.input.write(r)
                             w.input.flush()
-                            paced().takeIf { it > 0 }?.let { delay(it) }
+                            maxOf(paced(), extraDwellMs).takeIf { it > 0 }?.let { delay(it) }
                         }
                     }
                 } catch (_: IOException) {
@@ -154,8 +154,7 @@ private class HidWriter(private val node: String, private val size: Int, private
     }
 }
 
-// Two poll periods of the running keyboard, with a conservative minimum dwell
-// for Windows to observe every modifier/key-up transition across pasted text.
+// Respect the host interval, with a minimum 12-ms report dwell verified on Windows.
 private fun keyPace(): Long {
     val s = Gadget.status
     val n = s?.hid?.firstOrNull { it.function == "keyboard" }?.interval?.takeIf { it > 0 } ?: DEFAULT_INTERVAL
@@ -200,6 +199,7 @@ fun KbdMouseScreen(back: () -> Unit) {
     BackHandler(onBack = back)
     val context = LocalContext.current
     var german by remember { mutableStateOf(germanLayout(context)) }
+    var human by remember { mutableStateOf(humanTyping(context)) }
     // Kept through a status read that fails: one bad poll must not kill the writers
     val status = Gadget.status
     var hid by remember { mutableStateOf(status?.hid.orEmpty()) }
@@ -221,8 +221,15 @@ fun KbdMouseScreen(back: () -> Unit) {
         pointer()
     }
     // A key goes with the latched modifiers, then they let go: Ctrl, then c, is Ctrl+C
-    fun press(code: Int, extra: Int = 0) {
-        keyStrokeReports(mods or extra, code).forEach { kbd?.send(it) }
+    fun press(code: Int, extra: Int = 0, typedText: Boolean = false) {
+        val sequence = keyStrokeReports(mods or extra, code)
+        // Only TYPE text is human-paced; shortcuts, standalone keys and mouse stay responsive.
+        val tailPace = if (typedText && human) {
+            humanTailPaceMs(sequence.size, keyPace(), kotlin.random.Random.nextLong(180L, 251L))
+        } else 0L
+        sequence.forEachIndexed { index, report ->
+            kbd?.send(report, if (index == sequence.lastIndex) tailPace else 0L)
+        }
         mods = 0
     }
     // The pad's gestures, kept across the full-screen flip, their outputs the writers as they are now
@@ -399,12 +406,18 @@ fun KbdMouseScreen(back: () -> Unit) {
                     }
                 }
             } else {
-                Key(if (german) "DE QWERTZ" else "US QWERTY", Modifier.fillMaxWidth()) {
-                    german = !german
-                    setGermanLayout(context, german)
-                    text = ""
+                KeyRow {
+                    Key(if (german) "DE QWERTZ" else "US QWERTY", Modifier.weight(1f)) {
+                        german = !german
+                        setGermanLayout(context, german)
+                        text = ""
+                    }
+                    Key(if (human) "HUMAN ON" else "HUMAN OFF", Modifier.weight(1f)) {
+                        human = !human
+                        setHumanTyping(context, human)
+                    }
                 }
-                KeysTab(text, { text = it }, mods, onMod = { mods = mods xor it }, onKey = { press(it) }, onType = { m, c -> press(c, m) }, german = german)
+                KeysTab(text, { text = it }, mods, onMod = { mods = mods xor it }, onKey = { press(it) }, onType = { m, c -> press(c, m, typedText = true) }, german = german)
             }
         }
         if (!on) HidOff(Gadget.caps.has(Fn.HID))
