@@ -154,13 +154,12 @@ private class HidWriter(private val node: String, private val size: Int, private
     }
 }
 
-// Two poll periods of the running keyboard, in whole ms: its interval (0 is the kernel's 1 ms) at
-// the bus speed the host gave it
+// Two poll periods of the running keyboard, with a conservative minimum dwell
+// for Windows to observe every modifier/key-up transition across pasted text.
 private fun keyPace(): Long {
     val s = Gadget.status
     val n = s?.hid?.firstOrNull { it.function == "keyboard" }?.interval?.takeIf { it > 0 } ?: DEFAULT_INTERVAL
-    val us = if (s?.speed == "full-speed") n * 1000L else (1L shl (n - 1)) * 125
-    return maxOf(1L, (2 * us + 999) / 1000)
+    return keyboardReportPaceMs(n, s?.speed == "full-speed")
 }
 
 // The left stick while Keys + mouse holds it: MainActivity hands joystick moves here instead of
