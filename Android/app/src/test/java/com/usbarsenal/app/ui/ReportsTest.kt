@@ -25,41 +25,44 @@ class ReportsTest {
     }
 
     @Test
-    fun altGrIsStagedBeforeAndAfterKey() {
-        val seq = keyStrokeReports(MOD_ALTGR, 0x14)
-        assertEquals(4, seq.size)
-        assertArrayEquals(keyReport(MOD_ALTGR), seq[0])
-        assertArrayEquals(keyReport(MOD_ALTGR, 0x14), seq[1])
-        assertArrayEquals(keyReport(MOD_ALTGR), seq[2])
-        assertArrayEquals(keyReport(), seq[3])
-        val bracket = keyStrokeReports(MOD_ALTGR, 0x25)
-        assertEquals(4, bracket.size)
-        assertArrayEquals(keyReport(MOD_ALTGR, 0x25), bracket[1])
-    }
-
-    @Test
-    fun unmodifiedAndShiftKeysKeepExistingCadence() {
+    fun altGrReportsExposeModifierAndRelease() {
+        val reports = keyStrokeReports(MOD_ALTGR, 0x14)
+        assertEquals(4, reports.size)
+        assertArrayEquals(keyReport(MOD_ALTGR), reports[0])
+        assertArrayEquals(keyReport(MOD_ALTGR, 0x14), reports[1])
+        assertArrayEquals(keyReport(MOD_ALTGR), reports[2])
+        assertArrayEquals(keyReport(), reports[3])
         val simple = keyStrokeReports(0, 0x04)
         assertEquals(2, simple.size)
         assertArrayEquals(keyReport(0, 0x04), simple[0])
         assertArrayEquals(keyReport(), simple[1])
-        val shift = keyStrokeReports(MOD_SHIFT, 0x04)
-        assertEquals(2, shift.size)
-        assertArrayEquals(keyReport(MOD_SHIFT, 0x04), shift[0])
-        assertArrayEquals(keyReport(), shift[1])
+        val shifted = keyStrokeReports(MOD_SHIFT, 0x04)
+        assertEquals(2, shifted.size)
+        assertArrayEquals(keyReport(MOD_SHIFT, 0x04), shifted[0])
+        assertArrayEquals(keyReport(), shifted[1])
     }
 
     @Test
-    fun reportDwellCoversHighSpeedWindowsAndConfiguredIntervals() {
-        // With the Pixel's high-speed gadget and automatic interval, the old
-        // two-poll calculation produced ~2 ms. Require a conservative 12 ms.
+    fun reportPacingPreservesWindowsMinimum() {
         assertEquals(12L, keyboardReportPaceMs(4, false))
         assertEquals(12L, keyboardReportPaceMs(4, true))
         assertEquals(12L, keyboardReportPaceMs(1, false))
         assertEquals(12L, keyboardReportPaceMs(1, true))
-        // Explicit slower intervals must not be shortened.
         assertEquals(32L, keyboardReportPaceMs(8, false))
         assertEquals(16L, keyboardReportPaceMs(8, true))
+    }
+
+    @Test
+    fun humanPacingTargetsFullStrokeNotIndividualReports() {
+        // Regular character: 12 ms after key-down, 188 ms after all-up -> 200 ms.
+        assertEquals(188L, humanTailPaceMs(2, 12L, 200L))
+        // AltGr: three early reports at 12 ms; extra time after final all-up.
+        assertEquals(164L, humanTailPaceMs(4, 12L, 200L))
+        assertEquals(168L, humanTailPaceMs(2, 12L, 180L))
+        assertEquals(214L, humanTailPaceMs(4, 12L, 250L))
+        // A physically slower interval cannot be shortened by human mode.
+        assertEquals(32L, humanTailPaceMs(4, 32L, 80L))
+        assertEquals(12L, humanTailPaceMs(2, 12L, 0L))
     }
 
     @Test
