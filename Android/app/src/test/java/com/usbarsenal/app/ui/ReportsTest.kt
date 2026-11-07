@@ -50,6 +50,19 @@ class ReportsTest {
     }
 
     @Test
+    fun reportDwellCoversHighSpeedWindowsAndConfiguredIntervals() {
+        // With the Pixel's high-speed gadget and automatic interval, the old
+        // two-poll calculation produced ~2 ms. Require a conservative 12 ms.
+        assertEquals(12L, keyboardReportPaceMs(4, false))
+        assertEquals(12L, keyboardReportPaceMs(4, true))
+        assertEquals(12L, keyboardReportPaceMs(1, false))
+        assertEquals(12L, keyboardReportPaceMs(1, true))
+        // Explicit slower intervals must not be shortened.
+        assertEquals(32L, keyboardReportPaceMs(8, false))
+        assertEquals(16L, keyboardReportPaceMs(8, true))
+    }
+
+    @Test
     fun typing() {
         assertEquals(0 to 0x04, keyFor('a'))
         assertEquals(MOD_SHIFT to 0x1D, keyFor('Z'))
