@@ -89,6 +89,16 @@ fun mouseReport(buttons: Int, dx: Int = 0, dy: Int = 0, wheel: Int = 0, pan: Int
 
 fun keyReport(mods: Int = 0, code: Int = 0) = byteArrayOf(mods.toByte(), 0, code.toByte(), 0, 0, 0, 0, 0)
 
+// Windows AltGr acceptance: expose Right Alt as a distinct state transition before
+// the character key. The keyboard writer spaces each report by two host polls.
+// Keep the established two-report path for unmodified and other modified keys.
+fun keyStrokeReports(mods: Int, code: Int): List<ByteArray> =
+    if (mods and MOD_ALTGR != 0 && code != 0) {
+        listOf(keyReport(mods), keyReport(mods, code), keyReport(mods), keyReport())
+    } else {
+        listOf(keyReport(mods, code), keyReport())
+    }
+
 // The keys the Keys tab names, by their usage codes
 val NAMED_KEYS: Map<String, Int> = mapOf(
     "ESC" to 0x29, "TAB" to 0x2B, "BKSP" to 0x2A, "DEL" to 0x4C, "ENTER" to 0x28,
