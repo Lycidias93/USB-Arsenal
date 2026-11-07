@@ -25,6 +25,31 @@ class ReportsTest {
     }
 
     @Test
+    fun altGrIsStagedBeforeAndAfterKey() {
+        val seq = keyStrokeReports(MOD_ALTGR, 0x14)
+        assertEquals(4, seq.size)
+        assertArrayEquals(keyReport(MOD_ALTGR), seq[0])
+        assertArrayEquals(keyReport(MOD_ALTGR, 0x14), seq[1])
+        assertArrayEquals(keyReport(MOD_ALTGR), seq[2])
+        assertArrayEquals(keyReport(), seq[3])
+        val bracket = keyStrokeReports(MOD_ALTGR, 0x25)
+        assertEquals(4, bracket.size)
+        assertArrayEquals(keyReport(MOD_ALTGR, 0x25), bracket[1])
+    }
+
+    @Test
+    fun unmodifiedAndShiftKeysKeepExistingCadence() {
+        val simple = keyStrokeReports(0, 0x04)
+        assertEquals(2, simple.size)
+        assertArrayEquals(keyReport(0, 0x04), simple[0])
+        assertArrayEquals(keyReport(), simple[1])
+        val shift = keyStrokeReports(MOD_SHIFT, 0x04)
+        assertEquals(2, shift.size)
+        assertArrayEquals(keyReport(MOD_SHIFT, 0x04), shift[0])
+        assertArrayEquals(keyReport(), shift[1])
+    }
+
+    @Test
     fun typing() {
         assertEquals(0 to 0x04, keyFor('a'))
         assertEquals(MOD_SHIFT to 0x1D, keyFor('Z'))
