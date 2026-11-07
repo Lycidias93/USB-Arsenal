@@ -99,6 +99,15 @@ fun keyStrokeReports(mods: Int, code: Int): List<ByteArray> =
         listOf(keyReport(mods, code), keyReport())
     }
 
+// A connected high-speed host can miss brief modifier/key-up states during a
+// multi-character paste even when isolated keys work. Keep each state visible
+// for at least 12 ms, while still honoring slower configured HID intervals.
+internal fun keyboardReportPaceMs(interval: Int, fullSpeed: Boolean): Long {
+    val n = interval.coerceIn(1, 16)
+    val us = if (fullSpeed) n * 1000L else (1L shl (n - 1)) * 125
+    return maxOf(12L, (2 * us + 999) / 1000)
+}
+
 // The keys the Keys tab names, by their usage codes
 val NAMED_KEYS: Map<String, Int> = mapOf(
     "ESC" to 0x29, "TAB" to 0x2B, "BKSP" to 0x2A, "DEL" to 0x4C, "ENTER" to 0x28,
