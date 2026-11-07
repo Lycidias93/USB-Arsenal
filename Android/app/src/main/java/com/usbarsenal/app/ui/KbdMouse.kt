@@ -223,8 +223,7 @@ fun KbdMouseScreen(back: () -> Unit) {
     }
     // A key goes with the latched modifiers, then they let go: Ctrl, then c, is Ctrl+C
     fun press(code: Int, extra: Int = 0) {
-        kbd?.send(keyReport(mods or extra, code))
-        kbd?.send(keyReport())
+        keyStrokeReports(mods or extra, code).forEach { kbd?.send(it) }
         mods = 0
     }
     // The pad's gestures, kept across the full-screen flip, their outputs the writers as they are now
