@@ -25,6 +25,47 @@ class ReportsTest {
     }
 
     @Test
+    fun altGrReportsExposeModifierAndRelease() {
+        val reports = keyStrokeReports(MOD_ALTGR, 0x14)
+        assertEquals(4, reports.size)
+        assertArrayEquals(keyReport(MOD_ALTGR), reports[0])
+        assertArrayEquals(keyReport(MOD_ALTGR, 0x14), reports[1])
+        assertArrayEquals(keyReport(MOD_ALTGR), reports[2])
+        assertArrayEquals(keyReport(), reports[3])
+        val simple = keyStrokeReports(0, 0x04)
+        assertEquals(2, simple.size)
+        assertArrayEquals(keyReport(0, 0x04), simple[0])
+        assertArrayEquals(keyReport(), simple[1])
+        val shifted = keyStrokeReports(MOD_SHIFT, 0x04)
+        assertEquals(2, shifted.size)
+        assertArrayEquals(keyReport(MOD_SHIFT, 0x04), shifted[0])
+        assertArrayEquals(keyReport(), shifted[1])
+    }
+
+    @Test
+    fun reportPacingPreservesWindowsMinimum() {
+        assertEquals(12L, keyboardReportPaceMs(4, false))
+        assertEquals(12L, keyboardReportPaceMs(4, true))
+        assertEquals(12L, keyboardReportPaceMs(1, false))
+        assertEquals(12L, keyboardReportPaceMs(1, true))
+        assertEquals(32L, keyboardReportPaceMs(8, false))
+        assertEquals(16L, keyboardReportPaceMs(8, true))
+    }
+
+    @Test
+    fun humanPacingTargetsFullStrokeNotIndividualReports() {
+        // Regular character: 12 ms after key-down, 188 ms after all-up -> 200 ms.
+        assertEquals(188L, humanTailPaceMs(2, 12L, 200L))
+        // AltGr: three early reports at 12 ms; extra time after final all-up.
+        assertEquals(164L, humanTailPaceMs(4, 12L, 200L))
+        assertEquals(168L, humanTailPaceMs(2, 12L, 180L))
+        assertEquals(214L, humanTailPaceMs(4, 12L, 250L))
+        // A physically slower interval cannot be shortened by human mode.
+        assertEquals(32L, humanTailPaceMs(4, 32L, 80L))
+        assertEquals(12L, humanTailPaceMs(2, 12L, 0L))
+    }
+
+    @Test
     fun typing() {
         assertEquals(0 to 0x04, keyFor('a'))
         assertEquals(MOD_SHIFT to 0x1D, keyFor('Z'))
