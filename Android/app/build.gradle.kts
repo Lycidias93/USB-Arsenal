@@ -33,10 +33,10 @@ android {
 
     defaultConfig {
         // Side-by-side hardware acceptance only: never replace the installed release app.
-        applicationId = "com.usbarsenal.app.bevia"
+        applicationId = "com.usbarsenal.app.beviahuman"
         minSdk = 26
         targetSdk = 37
-        versionName = uaVersion.joinToString(".") + "-DE-TEST"
+        versionName = uaVersion.joinToString(".") + "-DE-HUMAN-TEST"
         // ponytail: 10000 commits per release before the count spills into the next version's codes
         versionCode = (uaVersion[0] * 1000 + uaVersion[1] * 100 + uaVersion[2] * 10) * 10000 + commits
     }
