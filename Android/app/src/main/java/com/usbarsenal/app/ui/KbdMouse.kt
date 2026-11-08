@@ -225,7 +225,7 @@ fun KbdMouseScreen(back: () -> Unit) {
         val sequence = keyStrokeReports(mods or extra, code)
         // Only TYPE text is human-paced; shortcuts, standalone keys and mouse stay responsive.
         val tailPace = if (typedText && human) {
-            humanTailPaceMs(sequence.size, keyPace(), kotlin.random.Random.nextLong(180L, 251L))
+            humanTailPaceMs(sequence.size, keyPace(), humanTypingIntervalMs())
         } else 0L
         sequence.forEachIndexed { index, report ->
             kbd?.send(report, if (index == sequence.lastIndex) tailPace else 0L)
