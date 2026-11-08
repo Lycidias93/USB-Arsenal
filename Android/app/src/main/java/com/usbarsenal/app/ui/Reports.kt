@@ -112,6 +112,11 @@ internal fun keyboardReportPaceMs(interval: Int, fullSpeed: Boolean): Long {
     return maxOf(12L, (2 * us + 999) / 1000)
 }
 
+// A brisk, still human-plausible interval; ordinary key strokes stay instantaneous.
+// Defaults to off at the UI, and the proven 12-ms report floor is independent.
+internal fun humanTypingIntervalMs(random: kotlin.random.Random = kotlin.random.Random.Default): Long =
+    random.nextLong(110L, 171L)
+
 // Keep the whole stroke at its reliable HID cadence; extend only its final all-up dwell.
 // This targets an interval between starts of adjacent characters, not per report.
 internal fun humanTailPaceMs(reportCount: Int, reportPaceMs: Long, intervalMs: Long): Long =
