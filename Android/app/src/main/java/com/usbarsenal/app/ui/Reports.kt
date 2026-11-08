@@ -97,9 +97,11 @@ fun mouseReport(buttons: Int, dx: Int = 0, dy: Int = 0, wheel: Int = 0, pan: Int
 
 fun keyReport(mods: Int = 0, code: Int = 0) = byteArrayOf(mods.toByte(), 0, code.toByte(), 0, 0, 0, 0, 0)
 
-// Windows needs Right Alt as its own transition, before and after AltGr+key.
+// Some Windows hosts miss simultaneous modifier+key transitions, especially Shift on
+// long mixed-case text. Stage Shift and Right Alt (AltGr) as separate held reports,
+// then release the key while the modifier is still down, before releasing modifiers.
 fun keyStrokeReports(mods: Int, code: Int): List<ByteArray> =
-    if (mods and MOD_ALTGR != 0 && code != 0) {
+    if (mods and (MOD_SHIFT or MOD_ALTGR) != 0 && code != 0) {
         listOf(keyReport(mods), keyReport(mods, code), keyReport(mods), keyReport())
     } else {
         listOf(keyReport(mods, code), keyReport())
