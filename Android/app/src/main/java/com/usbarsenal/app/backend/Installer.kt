@@ -35,6 +35,11 @@ enum class BackendState { NO_ROOT, NOT_INSTALLED, MODULE_MISSING, CORRUPTED, UPD
 // [installed] is the version the installed binary reports, when it runs
 data class Backend(val state: BackendState, val installed: String?)
 
+// READY or UPDATE_AVAILABLE means the existing binary, Quacky and module are runnable.
+// Offer a safe non-writing choice; an update is still available only by explicit request.
+fun Backend.canKeepInstalledBackend(): Boolean =
+    state == BackendState.READY || state == BackendState.UPDATE_AVAILABLE
+
 suspend fun backendState(context: Context): Backend {
     val r = Root.read(
         """
