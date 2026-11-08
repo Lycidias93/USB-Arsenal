@@ -37,9 +37,47 @@ class ReportsTest {
         assertArrayEquals(keyReport(0, 0x04), simple[0])
         assertArrayEquals(keyReport(), simple[1])
         val shifted = keyStrokeReports(MOD_SHIFT, 0x04)
-        assertEquals(2, shifted.size)
-        assertArrayEquals(keyReport(MOD_SHIFT, 0x04), shifted[0])
-        assertArrayEquals(keyReport(), shifted[1])
+        assertEquals(4, shifted.size)
+        assertArrayEquals(keyReport(MOD_SHIFT), shifted[0])
+        assertArrayEquals(keyReport(MOD_SHIFT, 0x04), shifted[1])
+        assertArrayEquals(keyReport(MOD_SHIFT), shifted[2])
+        assertArrayEquals(keyReport(), shifted[3])
+        // Non-Shift shortcuts keep the original two-report behavior.
+        val control = keyStrokeReports(MOD_CTRL, 0x06)
+        assertEquals(2, control.size)
+        assertArrayEquals(keyReport(MOD_CTRL, 0x06), control[0])
+        assertArrayEquals(keyReport(), control[1])
+    }
+
+
+    @Test
+    fun longMixedCaseTextHasReliableShiftEdges() {
+        // Regression for case loss during long TYPE input; use only synthetic text.
+        val text = "AbCd EfGh ÄäÖöÜü YyZz 123 !? @{}"
+        val keys = text.mapNotNull { keyFor(it, german = true) }
+        assertEquals(text.length, keys.size)
+        var upper = 0
+        var ordinary = 0
+        keys.forEach { (mods, code) ->
+            val stroke = keyStrokeReports(mods, code)
+            if (mods and (MOD_SHIFT or MOD_ALTGR) != 0) {
+                assertEquals(4, stroke.size)
+                assertArrayEquals(keyReport(mods), stroke[0])
+                assertArrayEquals(keyReport(mods, code), stroke[1])
+                assertArrayEquals(keyReport(mods), stroke[2])
+                assertArrayEquals(keyReport(), stroke[3])
+                upper++
+            } else {
+                assertEquals(2, stroke.size)
+                assertArrayEquals(keyReport(mods, code), stroke[0])
+                assertArrayEquals(keyReport(), stroke[1])
+                ordinary++
+            }
+        }
+        org.junit.Assert.assertTrue(upper >= 10)
+        org.junit.Assert.assertTrue(ordinary >= 10)
+        // The longer Shift stroke still fits the human interval without reducing 12-ms dwell.
+        assertEquals(74L, humanTailPaceMs(4, 12L, 110L))
     }
 
     @Test
