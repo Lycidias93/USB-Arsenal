@@ -53,6 +53,15 @@ class ReportsTest {
     }
 
     @Test
+    fun fasterHumanSpeedIsBoundedAndVariable() {
+        val random = kotlin.random.Random(42)
+        val delays = (1..512).map { humanTypingIntervalMs(random) }
+        org.junit.Assert.assertTrue(delays.all { it in 110L..170L })
+        org.junit.Assert.assertTrue(delays.distinct().size > 1)
+        org.junit.Assert.assertTrue(delays.all { humanTailPaceMs(4, 12L, it) >= 12L })
+    }
+
+    @Test
     fun humanPacingTargetsFullStrokeNotIndividualReports() {
         // Regular character: 12 ms after key-down, 188 ms after all-up -> 200 ms.
         assertEquals(188L, humanTailPaceMs(2, 12L, 200L))
