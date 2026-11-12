@@ -10,8 +10,14 @@ const val MOUSE_LEFT = 0x01
 const val MOUSE_RIGHT = 0x02
 const val MOUSE_MIDDLE = 0x04
 
+// Fresh German-language installs start in DE; previously selected layouts stay untouched.
+// The app's effective locale is available through Configuration on minSdk 26.
+internal fun defaultsToGerman(language: String): Boolean =
+    language.equals("de", ignoreCase = true)
+
 fun germanLayout(context: android.content.Context): Boolean =
-    context.getSharedPreferences("hid_text_layout", 0).getBoolean("de_qwertz", false)
+    context.getSharedPreferences("hid_text_layout", 0)
+        .getBoolean("de_qwertz", defaultsToGerman(context.resources.configuration.locales[0].language))
 
 fun setGermanLayout(context: android.content.Context, enabled: Boolean) {
     context.getSharedPreferences("hid_text_layout", 0)
@@ -22,12 +28,19 @@ const val HUMAN_OFF = 0
 const val HUMAN_FAST = 1
 const val HUMAN_SAFE = 2
 
-// Existing installs only have the boolean preference. Retain their accepted safe rate.
+// New German-layout installs prefer Fast; non-German installs retain Off.
+// Existing explicit OFF/ON settings always override the new default.
+internal fun defaultHumanMode(german: Boolean): Int = if (german) HUMAN_FAST else HUMAN_OFF
+
 fun humanTypingMode(context: android.content.Context): Int {
     val prefs = context.getSharedPreferences("hid_text_layout", 0)
-    return if (prefs.contains("human_mode")) {
-        prefs.getInt("human_mode", HUMAN_OFF).coerceIn(HUMAN_OFF, HUMAN_SAFE)
-    } else if (prefs.getBoolean("human_typing", false)) HUMAN_SAFE else HUMAN_OFF
+    return when {
+        prefs.contains("human_mode") ->
+            prefs.getInt("human_mode", HUMAN_OFF).coerceIn(HUMAN_OFF, HUMAN_SAFE)
+        prefs.contains("human_typing") ->
+            if (prefs.getBoolean("human_typing", false)) HUMAN_SAFE else HUMAN_OFF
+        else -> defaultHumanMode(germanLayout(context))
+    }
 }
 
 fun setHumanTypingMode(context: android.content.Context, mode: Int) {

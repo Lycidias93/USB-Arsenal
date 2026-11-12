@@ -112,6 +112,18 @@ class ReportsTest {
     }
 
     @Test
+    fun defaultsFollowGermanLocaleOnlyUntilExplicitlySelected() {
+        assertEquals(true, defaultsToGerman("de"))
+        assertEquals(true, defaultsToGerman("DE"))
+        assertEquals(false, defaultsToGerman("en"))
+        assertEquals(false, defaultsToGerman("fr"))
+        assertEquals(HUMAN_FAST, defaultHumanMode(defaultsToGerman("de")))
+        assertEquals(HUMAN_OFF, defaultHumanMode(defaultsToGerman("en")))
+        // Values explicitly stored in SharedPreferences take precedence;
+        // do not reset a user's saved US selection or HUMAN OFF on launch.
+    }
+
+    @Test
     fun humanModeCycleKeepsSafeAsFallback() {
         assertEquals(HUMAN_FAST, nextHumanMode(HUMAN_OFF))
         assertEquals(HUMAN_SAFE, nextHumanMode(HUMAN_FAST))
