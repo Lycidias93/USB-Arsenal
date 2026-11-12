@@ -199,7 +199,7 @@ fun KbdMouseScreen(back: () -> Unit) {
     BackHandler(onBack = back)
     val context = LocalContext.current
     var german by remember { mutableStateOf(germanLayout(context)) }
-    var human by remember { mutableStateOf(humanTyping(context)) }
+    var humanMode by remember { mutableIntStateOf(humanTypingMode(context)) }
     // Kept through a status read that fails: one bad poll must not kill the writers
     val status = Gadget.status
     var hid by remember { mutableStateOf(status?.hid.orEmpty()) }
@@ -224,8 +224,8 @@ fun KbdMouseScreen(back: () -> Unit) {
     fun press(code: Int, extra: Int = 0, typedText: Boolean = false) {
         val sequence = keyStrokeReports(mods or extra, code)
         // Only TYPE text is human-paced; shortcuts, standalone keys and mouse stay responsive.
-        val tailPace = if (typedText && human) {
-            humanTailPaceMs(sequence.size, keyPace(), humanTypingIntervalMs())
+        val tailPace = if (typedText && humanMode != HUMAN_OFF) {
+            humanTailPaceMs(sequence.size, keyPace(), humanTypingIntervalMs(fast = humanMode == HUMAN_FAST))
         } else 0L
         sequence.forEachIndexed { index, report ->
             kbd?.send(report, if (index == sequence.lastIndex) tailPace else 0L)
@@ -412,9 +412,16 @@ fun KbdMouseScreen(back: () -> Unit) {
                         setGermanLayout(context, german)
                         text = ""
                     }
-                    Key(if (human) "HUMAN ON" else "HUMAN OFF", Modifier.weight(1f)) {
-                        human = !human
-                        setHumanTyping(context, human)
+                    Key(
+                        str(when (humanMode) {
+                            HUMAN_FAST -> R.string.keyboard_human_fast
+                            HUMAN_SAFE -> R.string.keyboard_human_safe
+                            else -> R.string.keyboard_human_off
+                        }),
+                        Modifier.weight(1f),
+                    ) {
+                        humanMode = nextHumanMode(humanMode)
+                        setHumanTypingMode(context, humanMode)
                     }
                 }
                 KeysTab(text, { text = it }, mods, onMod = { mods = mods xor it }, onKey = { press(it) }, onType = { m, c -> press(c, m, typedText = true) }, german = german)
