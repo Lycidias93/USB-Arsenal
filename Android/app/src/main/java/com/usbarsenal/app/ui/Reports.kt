@@ -10,10 +10,117 @@ const val MOUSE_LEFT = 0x01
 const val MOUSE_RIGHT = 0x02
 const val MOUSE_MIDDLE = 0x04
 
+// Fresh German-language installs start in DE; previously selected layouts stay untouched.
+// The app's effective locale is available through Configuration on minSdk 26.
+internal fun defaultsToGerman(language: String): Boolean =
+    language.equals("de", ignoreCase = true)
+
+fun germanLayout(context: android.content.Context): Boolean =
+    context.getSharedPreferences("hid_text_layout", 0)
+        .getBoolean("de_qwertz", defaultsToGerman(context.resources.configuration.locales[0].language))
+
+fun setGermanLayout(context: android.content.Context, enabled: Boolean) {
+    context.getSharedPreferences("hid_text_layout", 0)
+        .edit().putBoolean("de_qwertz", enabled).apply()
+}
+
+const val HUMAN_OFF = 0
+const val HUMAN_FAST = 1
+const val HUMAN_SAFE = 2
+
+// New German-layout installs prefer Fast; non-German installs retain Off.
+// Existing explicit OFF/ON settings always override the new default.
+internal fun defaultHumanMode(german: Boolean): Int = if (german) HUMAN_FAST else HUMAN_OFF
+
+fun humanTypingMode(context: android.content.Context): Int {
+    val prefs = context.getSharedPreferences("hid_text_layout", 0)
+    return when {
+        prefs.contains("human_mode") ->
+            prefs.getInt("human_mode", HUMAN_OFF).coerceIn(HUMAN_OFF, HUMAN_SAFE)
+        prefs.contains("human_typing") ->
+            if (prefs.getBoolean("human_typing", false)) HUMAN_SAFE else HUMAN_OFF
+        else -> defaultHumanMode(germanLayout(context))
+    }
+}
+
+fun setHumanTypingMode(context: android.content.Context, mode: Int) {
+    require(mode in HUMAN_OFF..HUMAN_SAFE)
+    context.getSharedPreferences("hid_text_layout", 0).edit()
+        .putInt("human_mode", mode)
+        .putBoolean("human_typing", mode != HUMAN_OFF)
+        .apply()
+}
+
+// A single key cycles OFF -> FAST -> SAFE, and never changes the HID report floor.
+internal fun nextHumanMode(mode: Int): Int = when (mode) {
+    HUMAN_OFF -> HUMAN_FAST
+    HUMAN_FAST -> HUMAN_SAFE
+    else -> HUMAN_OFF
+}
+
 const val MOD_CTRL = 0x01
 const val MOD_SHIFT = 0x02
 const val MOD_ALT = 0x04
 const val MOD_SUPER = 0x08
+const val MOD_ALTGR = 0x40
+
+private fun germanKeyFor(c: Char): Pair<Int, Int>? = when (c) {
+    in 'a'..'z' -> 0 to 0x04 + (if (c == 'y') 'z' - 'a' else if (c == 'z') 'y' - 'a' else c - 'a')
+    in 'A'..'Z' -> MOD_SHIFT to 0x04 + (if (c == 'Y') 'Z' - 'A' else if (c == 'Z') 'Y' - 'A' else c - 'A')
+    '0' -> 0 to 0x27
+    in '1'..'9' -> 0 to 0x1E + (c - '1')
+    else -> germanSymbol(c)
+}
+
+private fun germanSymbol(c: Char): Pair<Int, Int>? = when (c.code) {
+    8 -> 0 to 0x2A
+    9 -> 0 to 0x2B
+    10 -> 0 to 0x28
+    32 -> 0 to 0x2C
+    33 -> MOD_SHIFT to 0x1E
+    34 -> MOD_SHIFT to 0x1F
+    35 -> 0 to 0x32
+    36 -> MOD_SHIFT to 0x21
+    37 -> MOD_SHIFT to 0x22
+    38 -> MOD_SHIFT to 0x23
+    39 -> MOD_SHIFT to 0x32
+    40 -> MOD_SHIFT to 0x25
+    41 -> MOD_SHIFT to 0x26
+    42 -> MOD_SHIFT to 0x30
+    43 -> 0 to 0x30
+    44 -> 0 to 0x36
+    45 -> 0 to 0x38
+    46 -> 0 to 0x37
+    47 -> MOD_SHIFT to 0x24
+    58 -> MOD_SHIFT to 0x37
+    59 -> MOD_SHIFT to 0x36
+    60 -> 0 to 0x64
+    61 -> MOD_SHIFT to 0x27
+    62 -> MOD_SHIFT to 0x64
+    63 -> MOD_SHIFT to 0x2D
+    64 -> MOD_ALTGR to 0x14
+    91 -> MOD_ALTGR to 0x25
+    92 -> MOD_ALTGR to 0x2D
+    93 -> MOD_ALTGR to 0x26
+    95 -> MOD_SHIFT to 0x38
+    123 -> MOD_ALTGR to 0x24
+    124 -> MOD_ALTGR to 0x64
+    125 -> MOD_ALTGR to 0x27
+    0x00A7 -> MOD_SHIFT to 0x20
+    0x00B0 -> MOD_SHIFT to 0x35
+    0x00B2 -> MOD_ALTGR to 0x1F
+    0x00B3 -> MOD_ALTGR to 0x20
+    0x00B5 -> MOD_ALTGR to 0x10
+    0x00C4 -> MOD_SHIFT to 0x34
+    0x00D6 -> MOD_SHIFT to 0x33
+    0x00DC -> MOD_SHIFT to 0x2F
+    0x00DF -> 0 to 0x2D
+    0x00E4 -> 0 to 0x34
+    0x00F6 -> 0 to 0x33
+    0x00FC -> 0 to 0x2F
+    0x20AC -> MOD_ALTGR to 0x08
+    else -> null
+}
 
 private fun signed(v: Int) = v.coerceIn(-127, 127).toByte()
 
@@ -21,6 +128,35 @@ fun mouseReport(buttons: Int, dx: Int = 0, dy: Int = 0, wheel: Int = 0, pan: Int
     byteArrayOf(buttons.toByte(), signed(dx), signed(dy), signed(wheel), signed(pan))
 
 fun keyReport(mods: Int = 0, code: Int = 0) = byteArrayOf(mods.toByte(), 0, code.toByte(), 0, 0, 0, 0, 0)
+
+// Some Windows hosts miss simultaneous modifier+key transitions, especially Shift on
+// long mixed-case text. Stage Shift and Right Alt (AltGr) as separate held reports,
+// then release the key while the modifier is still down, before releasing modifiers.
+fun keyStrokeReports(mods: Int, code: Int): List<ByteArray> =
+    if (mods and (MOD_SHIFT or MOD_ALTGR) != 0 && code != 0) {
+        listOf(keyReport(mods), keyReport(mods, code), keyReport(mods), keyReport())
+    } else {
+        listOf(keyReport(mods, code), keyReport())
+    }
+
+// Never shorten the physical 12-ms minimum that passed the Windows test.
+internal fun keyboardReportPaceMs(interval: Int, fullSpeed: Boolean): Long {
+    val n = interval.coerceIn(1, 16)
+    val us = if (fullSpeed) n * 1000L else (1L shl (n - 1)) * 125
+    return maxOf(12L, (2 * us + 999) / 1000)
+}
+
+// The extra time between characters never shortens the verified HID report cadence.
+// Safe retains the rate accepted on RDP; Fast is a candidate pending the same test.
+internal fun humanTypingIntervalMs(
+    random: kotlin.random.Random = kotlin.random.Random.Default,
+    fast: Boolean = false,
+): Long = if (fast) random.nextLong(65L, 96L) else random.nextLong(110L, 171L)
+
+// Keep the whole stroke at its reliable HID cadence; extend only its final all-up dwell.
+// This targets an interval between starts of adjacent characters, not per report.
+internal fun humanTailPaceMs(reportCount: Int, reportPaceMs: Long, intervalMs: Long): Long =
+    maxOf(reportPaceMs, intervalMs - (reportCount - 1).coerceAtLeast(0) * reportPaceMs)
 
 // The keys the Keys tab names, by their usage codes
 val NAMED_KEYS: Map<String, Int> = mapOf(
@@ -37,7 +173,10 @@ private val SYMBOL_CODES = intArrayOf(0x2D, 0x2E, 0x2F, 0x30, 0x31, 0x33, 0x34, 
 private const val SHIFTED_DIGITS = ")!@#$%^&*("
 
 // The modifiers and usage code that type [c] on a US layout; null for a character it cannot
-fun keyFor(c: Char): Pair<Int, Int>? = when (c) {
+fun keyFor(c: Char, german: Boolean = false): Pair<Int, Int>? =
+    if (german) germanKeyFor(c) else usKeyFor(c)
+
+private fun usKeyFor(c: Char): Pair<Int, Int>? = when (c) {
     in 'a'..'z' -> 0 to 0x04 + (c - 'a')
     in 'A'..'Z' -> MOD_SHIFT to 0x04 + (c - 'A')
     '0' -> 0 to 0x27

@@ -688,3 +688,13 @@ Tick a box only when the item is merged and verified as described in its phase.
   word into a translated sentence. `generateLocaleConfig` puts the app in Android 13's per-app
   language list once a translation lands. App()'s root-denial reset now runs in `onCreate`, as
   lint rejects a `remember` that returns Unit and an effect would come too late.
+- 2026-11-12: Optional HUMAN Fast rate (65 to 95 ms between characters) was
+  added to Android's Keys + mouse TYPE, with the previously observed RDP rate
+  (110 to 170 ms) retained as Safe. The key cycles Off/Fast/Safe and preserves
+  the 12 ms minimum per USB HID report and staged Shift/AltGr reports.
+  Source and synthetic regression tests staged. Fast still requires a physical
+  RDP retest, and no production APK or shared backend was installed.
+- 2026-11-12: First-launch defaults now follow the app locale: German selects
+  DE QWERTZ and Human Fast (65 to 95 ms); others keep US QWERTY and Human Off.
+  Existing saved layout/mode selections and the legacy human_typing preference
+  take precedence. Added locale-default tests; no Pixel installation performed.

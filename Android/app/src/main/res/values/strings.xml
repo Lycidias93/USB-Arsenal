@@ -243,6 +243,10 @@
     <string name="keyboard_natural_scroll">Natural scroll</string>
     <!-- Keys tab: the label over the box whose text is typed on the host -->
     <string name="keyboard_type">Type</string>
+    <!-- Keys TYPE pacing, separate from the USB HID report interval -->
+    <string name="keyboard_human_off">Human off</string>
+    <string name="keyboard_human_fast">Human fast</string>
+    <string name="keyboard_human_safe">Human safe</string>
     <!-- Over the shaded page while HID is off, or when the kernel has no HID; the line break keeps it in a narrow box -->
     <string name="keyboard_hid_off">Enable HID on Home\nto use this page</string>
     <string name="keyboard_no_hid">No HID in\nthis kernel</string>
@@ -366,6 +370,9 @@
 
     <!-- Backend (the install): the screen's title and the shell comments above the installer -->
     <string name="setup_title_backend">Backend</string>
+    <string name="setup_keep_backend">Keep installed</string>
+    <string name="setup_install_backend">Install backend</string>
+    <string name="setup_existing_backend_warning">Backend already present. Installing replaces shared root files.</string>
     <!-- %1$s is the installed version, %2$s the one this app brings -->
     <string name="setup_install_update">update %1$s → %2$s</string>
     <!-- %1$s is the version, %2$s the CPU architecture, e.g. aarch64 -->

@@ -62,6 +62,8 @@ import com.usbarsenal.app.R
 import com.usbarsenal.app.str
 import com.usbarsenal.app.backend.Backend
 import com.usbarsenal.app.backend.BackendState
+import com.usbarsenal.app.backend.backendState
+import com.usbarsenal.app.backend.canKeepInstalledBackend
 import com.usbarsenal.app.backend.Cache
 import com.usbarsenal.app.backend.Capabilities
 import com.usbarsenal.app.backend.deviceArch
@@ -463,15 +465,20 @@ private fun CheckScreen(setup: Boolean, back: () -> Unit, next: () -> Unit) {
 private const val INSTALL = "./install-backend.sh"
 
 /*
- * The ported installer, played as a root shell like Root's. A comment says what will be
- * installed and the command types at once: nothing is asked, as opening the screen (setup's
- * Next, Home's update, Settings' Reinstall) already was. The installer's lines are its output,
- * typed as they come, and the prompt comes back. The layout never changes. [update] is the
- * installed version when this replaces one; the app's own version needs no root.
+ * The ported installer, played as a root shell like Root's. Opening this screen only probes
+ * the shared backend: it NEVER installs without pressing the explicit Install key.
+ * A runnable existing backend can be kept even when its binary differs from bundled assets.
+ * The installer starts only after confirmation, then its shell output is shown as it arrives.
+ * [update] is the installed version when this replaces one; the app's version needs no root.
  */
 @Composable
 private fun InstallScreen(setup: Boolean, update: String?, back: () -> Unit, home: () -> Unit) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var existing by remember { mutableStateOf<Backend?>(null) }
+    var usingExisting by remember { mutableStateOf(false) }
+    // Read-only probe: the test app shares the Root backend with the regular app.
+    LaunchedEffect(Unit) { existing = backendState(context.applicationContext) }
     val haptics = LocalHaptics.current
     val phase = Setup.phase
     val log = Setup.log
@@ -518,12 +525,7 @@ private fun InstallScreen(setup: Boolean, update: String?, back: () -> Unit, hom
     }
     // The haptic belongs to an install seen ending here, not to a screen that opens on an old one
     var watching by remember { mutableStateOf(phase == Phase.TYPING || phase == Phase.RUNNING) }
-    // Opening the screen was the ask: the command types at once
-    LaunchedEffect(Unit) {
-        if (Setup.phase != Phase.BEFORE) return@LaunchedEffect
-        watching = true
-        Setup.enter()
-    }
+    // Starting an installation is exclusively owned by the explicit Install key below.
     LaunchedEffect(finished) {
         if (!finished || !watching) return@LaunchedEffect
         watching = false
@@ -542,6 +544,30 @@ private fun InstallScreen(setup: Boolean, update: String?, back: () -> Unit, hom
             KeyRow {
                 val key = Modifier.weight(1f).focusRequester(focus)
                 when {
+                    phase == Phase.BEFORE -> {
+                        if (existing?.canKeepInstalledBackend() == true) {
+                            Key(str(R.string.setup_keep_backend), Modifier.weight(1f), enabled = !usingExisting) {
+                                if (!usingExisting && Setup.phase == Phase.BEFORE) {
+                                    usingExisting = true
+                                    scope.launch {
+                                        Gadget.launchReads(context.applicationContext)
+                                        home()
+                                    }
+                                }
+                            }
+                        }
+                        Key(
+                            str(R.string.setup_install_backend),
+                            key,
+                            primary = true,
+                            enabled = !usingExisting && existing != null && existing?.state != BackendState.NO_ROOT,
+                        ) {
+                            if (Setup.phase == Phase.BEFORE) {
+                                watching = true
+                                Setup.enter()
+                            }
+                        }
+                    }
                     phase == Phase.DONE && finished -> Key(str(R.string.common_home), key, primary = true, onClick = home)
                     phase == Phase.FAILED && finished -> {
                         Key(str(R.string.common_copy_log), Modifier.weight(1f)) {
@@ -566,6 +592,9 @@ private fun InstallScreen(setup: Boolean, update: String?, back: () -> Unit, hom
             else BackKey(enabled = finished || phase == Phase.BEFORE)
         }
         Title(str(R.string.setup_title_backend))
+        if (phase == Phase.BEFORE && existing?.canKeepInstalledBackend() == true) {
+            Text(str(R.string.setup_existing_backend_warning), LcdType.data)
+        }
         Shell("sh", led, session.shownAt(step), Modifier.fill(min = 200.dp))
     }
 }
