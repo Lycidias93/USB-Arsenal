@@ -100,6 +100,26 @@ class ReportsTest {
     }
 
     @Test
+    fun humanFastIsVariableAndPreservesShiftTiming() {
+        val random = kotlin.random.Random(24)
+        val intervals = (1..512).map { humanTypingIntervalMs(random, fast = true) }
+        org.junit.Assert.assertTrue(intervals.all { it in 65L..95L })
+        org.junit.Assert.assertTrue(intervals.distinct().size > 1)
+        // Four reports at a verified 12 ms, including Shift and AltGr, retain full dwell.
+        org.junit.Assert.assertTrue(intervals.all { humanTailPaceMs(4, 12L, it) >= 12L })
+        assertEquals(29L, humanTailPaceMs(4, 12L, 65L))
+        assertEquals(32L, humanTailPaceMs(4, 32L, 65L))
+    }
+
+    @Test
+    fun humanModeCycleKeepsSafeAsFallback() {
+        assertEquals(HUMAN_FAST, nextHumanMode(HUMAN_OFF))
+        assertEquals(HUMAN_SAFE, nextHumanMode(HUMAN_FAST))
+        assertEquals(HUMAN_OFF, nextHumanMode(HUMAN_SAFE))
+        assertEquals(HUMAN_OFF, nextHumanMode(999))
+    }
+
+    @Test
     fun humanPacingTargetsFullStrokeNotIndividualReports() {
         // Regular character: 12 ms after key-down, 188 ms after all-up -> 200 ms.
         assertEquals(188L, humanTailPaceMs(2, 12L, 200L))

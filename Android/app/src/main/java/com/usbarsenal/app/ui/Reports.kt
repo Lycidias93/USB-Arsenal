@@ -18,12 +18,31 @@ fun setGermanLayout(context: android.content.Context, enabled: Boolean) {
         .edit().putBoolean("de_qwertz", enabled).apply()
 }
 
-fun humanTyping(context: android.content.Context): Boolean =
-    context.getSharedPreferences("hid_text_layout", 0).getBoolean("human_typing", false)
+const val HUMAN_OFF = 0
+const val HUMAN_FAST = 1
+const val HUMAN_SAFE = 2
 
-fun setHumanTyping(context: android.content.Context, enabled: Boolean) {
-    context.getSharedPreferences("hid_text_layout", 0)
-        .edit().putBoolean("human_typing", enabled).apply()
+// Existing installs only have the boolean preference. Retain their accepted safe rate.
+fun humanTypingMode(context: android.content.Context): Int {
+    val prefs = context.getSharedPreferences("hid_text_layout", 0)
+    return if (prefs.contains("human_mode")) {
+        prefs.getInt("human_mode", HUMAN_OFF).coerceIn(HUMAN_OFF, HUMAN_SAFE)
+    } else if (prefs.getBoolean("human_typing", false)) HUMAN_SAFE else HUMAN_OFF
+}
+
+fun setHumanTypingMode(context: android.content.Context, mode: Int) {
+    require(mode in HUMAN_OFF..HUMAN_SAFE)
+    context.getSharedPreferences("hid_text_layout", 0).edit()
+        .putInt("human_mode", mode)
+        .putBoolean("human_typing", mode != HUMAN_OFF)
+        .apply()
+}
+
+// A single key cycles OFF -> FAST -> SAFE, and never changes the HID report floor.
+internal fun nextHumanMode(mode: Int): Int = when (mode) {
+    HUMAN_OFF -> HUMAN_FAST
+    HUMAN_FAST -> HUMAN_SAFE
+    else -> HUMAN_OFF
 }
 
 const val MOD_CTRL = 0x01
@@ -114,10 +133,12 @@ internal fun keyboardReportPaceMs(interval: Int, fullSpeed: Boolean): Long {
     return maxOf(12L, (2 * us + 999) / 1000)
 }
 
-// A brisk, still human-plausible interval; ordinary key strokes stay instantaneous.
-// Defaults to off at the UI, and the proven 12-ms report floor is independent.
-internal fun humanTypingIntervalMs(random: kotlin.random.Random = kotlin.random.Random.Default): Long =
-    random.nextLong(110L, 171L)
+// The extra time between characters never shortens the verified HID report cadence.
+// Safe retains the rate accepted on RDP; Fast is a candidate pending the same test.
+internal fun humanTypingIntervalMs(
+    random: kotlin.random.Random = kotlin.random.Random.Default,
+    fast: Boolean = false,
+): Long = if (fast) random.nextLong(65L, 96L) else random.nextLong(110L, 171L)
 
 // Keep the whole stroke at its reliable HID cadence; extend only its final all-up dwell.
 // This targets an interval between starts of adjacent characters, not per report.

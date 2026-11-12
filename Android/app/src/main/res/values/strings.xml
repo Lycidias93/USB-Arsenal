@@ -243,6 +243,10 @@
     <string name="keyboard_natural_scroll">Natural scroll</string>
     <!-- Keys tab: the label over the box whose text is typed on the host -->
     <string name="keyboard_type">Type</string>
+    <!-- Keys TYPE pacing, separate from the USB HID report interval -->
+    <string name="keyboard_human_off">Human off</string>
+    <string name="keyboard_human_fast">Human fast</string>
+    <string name="keyboard_human_safe">Human safe</string>
     <!-- Over the shaded page while HID is off, or when the kernel has no HID; the line break keeps it in a narrow box -->
     <string name="keyboard_hid_off">Enable HID on Home\nto use this page</string>
     <string name="keyboard_no_hid">No HID in\nthis kernel</string>
