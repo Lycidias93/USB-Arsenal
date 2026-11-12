@@ -636,8 +636,11 @@ cards: `Keyboard and mouse` (the nodes while HID runs, `a trackpad and keys` bef
   - Above TYPE, the app-side HUMAN key cycles Off, Fast (65 to 95 ms per character)
     and Safe (110 to 170 ms per character). Off sends reports with no extra
     character pause. The selected rate persists, and an earlier ON preference
-    migrates to Safe. Each HID report still waits at least 12 ms and modified
-    keystrokes still stage Shift or Right Alt before and after the key.
+    migrates to Safe. On first run, a German-language app locale defaults
+    to DE QWERTZ with Human Fast; other languages retain US QWERTY and Human Off.
+    Stored user selections always take priority over locale defaults. Each HID
+    report still waits at least 12 ms and modified keystrokes still stage
+    Shift or Right Alt before and after the key.
   - With HID off the page is drawn under a D50 dither that takes no touch or focus, and an
     inverted box (plain on a negative theme) with Pin, `Enable HID on Home to use this page`, steps in over it; a kernel with
     no HID says `No HID in this kernel` instead.

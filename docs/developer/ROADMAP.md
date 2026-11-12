@@ -694,3 +694,7 @@ Tick a box only when the item is merged and verified as described in its phase.
   the 12 ms minimum per USB HID report and staged Shift/AltGr reports.
   Source and synthetic regression tests staged. Fast still requires a physical
   RDP retest, and no production APK or shared backend was installed.
+- 2026-11-12: First-launch defaults now follow the app locale: German selects
+  DE QWERTZ and Human Fast (65 to 95 ms); others keep US QWERTY and Human Off.
+  Existing saved layout/mode selections and the legacy human_typing preference
+  take precedence. Added locale-default tests; no Pixel installation performed.
