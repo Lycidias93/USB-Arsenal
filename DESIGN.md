@@ -633,6 +633,14 @@ cards: `Keyboard and mouse` (the nodes while HID runs, `a trackpad and keys` bef
     whose text goes to the host as typed (deleted text as Backspace), with no placeholder. Keys
     are 44px tall. The box keeps its text across a trip to the Mouse tab.
   - Modifier keys latch, shown inverted, for the next key or character.
+  - Above TYPE, the app-side HUMAN key cycles Off, Fast (65 to 95 ms per character)
+    and Safe (110 to 170 ms per character). Off sends reports with no extra
+    character pause. The selected rate persists, and an earlier ON preference
+    migrates to Safe. On first run, a German-language app locale defaults
+    to DE QWERTZ with Human Fast; other languages retain US QWERTY and Human Off.
+    Stored user selections always take priority over locale defaults. Each HID
+    report still waits at least 12 ms and modified keystrokes still stage
+    Shift or Right Alt before and after the key.
   - With HID off the page is drawn under a D50 dither that takes no touch or focus, and an
     inverted box (plain on a negative theme) with Pin, `Enable HID on Home to use this page`, steps in over it; a kernel with
     no HID says `No HID in this kernel` instead.
